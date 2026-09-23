@@ -18,7 +18,9 @@ def sql_str(value) -> str:
 
 
 def build_sql(recipes: list[dict]) -> str:
-    lines = ["BEGIN TRANSACTION;"]
+    # D1 (Durable Objects storage) rejects explicit BEGIN/COMMIT in SQL --
+    # each statement below is already atomic and idempotent on its own.
+    lines = []
 
     for recipe in recipes:
         lines.append(
@@ -78,7 +80,6 @@ def build_sql(recipes: list[dict]) -> str:
                 f"ON CONFLICT(recipe_id) DO UPDATE SET {updates};"
             )
 
-    lines.append("COMMIT;")
     return "\n".join(lines)
 
 
