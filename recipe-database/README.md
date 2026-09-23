@@ -1,11 +1,15 @@
 # Recipe Database
 
 Personal recipe database sourced from sixsistersstuff.com (schema.org
-`Recipe` JSON-LD, read via [`recipe-scrapers`](https://github.com/hhursev/recipe-scrapers)'s
-wild mode — the site publishes structured recipe data and doesn't block
-scraping in `robots.txt`). Ingredient/blog text is copyrighted; this stores
-structured recipe data for personal use, not a republished copy of their
-site.
+`Recipe` JSON-LD embedded in each page by their WP Recipe Maker plugin —
+the site publishes structured recipe data and doesn't block scraping in
+`robots.txt`). Ingredient/blog text is copyrighted; this stores structured
+recipe data for personal use, not a republished copy of their site.
+
+Two equivalent script sets are provided — use whichever runtime you have:
+- `scripts/*.py` (Python, needs `pip install recipe-scrapers`)
+- `scripts/*.mjs` (Node, no dependencies — built-in `fetch`, reads the
+  JSON-LD directly)
 
 ## Schema
 
@@ -23,23 +27,34 @@ See `migrations/0001_init.sql`.
 
 ## Workflow
 
-1. `python scripts/collect_recipe_urls.py urls.txt`
-   Walks the site's sitemap index and writes every recipe URL to `urls.txt`.
-
-2. `python scripts/scrape_six_sisters.py urls.txt recipes.json`
-   Scrapes each URL (rate-limited, 2s between requests) into a JSON array.
-
-3. `python scripts/build_load_sql.py recipes.json load.sql`
-   Converts the JSON into an idempotent SQL file (safe to re-run; upserts
-   recipes/nutrients, skips existing ingredients/instructions).
-
-4. Apply to D1 (palmjam.party):
+1. Collect every recipe URL from the sitemap:
    ```
-   wrangler d1 migrations apply <db-name> --remote   # first time only
-   wrangler d1 execute <db-name> --remote --file=load.sql
+   python scripts/collect_recipe_urls.py urls.txt
+   # or
+   node scripts/collect-recipe-urls.mjs urls.txt
    ```
 
-Requires `pip install recipe-scrapers`.
+2. Scrape each URL (rate-limited, 2s between requests) into a JSON array:
+   ```
+   python scripts/scrape_six_sisters.py urls.txt recipes.json
+   # or
+   node scripts/scrape-six-sisters.mjs urls.txt recipes.json
+   ```
+
+3. Convert the JSON into an idempotent SQL file (safe to re-run; upserts
+   recipes/nutrients, skips existing ingredients/instructions):
+   ```
+   python scripts/build_load_sql.py recipes.json load.sql
+   # or
+   node scripts/build-load-sql.mjs recipes.json load.sql
+   ```
+
+4. Apply to D1 (palmjam.party) — create the database first if you haven't:
+   ```
+   wrangler d1 create recipes   # first time only; add the output to wrangler.toml
+   wrangler d1 execute recipes --remote --file=migrations/0001_init.sql   # first time only
+   wrangler d1 execute recipes --remote --file=load.sql
+   ```
 
 ## Limitations
 
